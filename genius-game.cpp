@@ -2,13 +2,11 @@
 #include <LiquidCrystal_I2C.h>
 
 // ===================== PINOS =====================
-// Botões (INPUT_PULLUP — ativo em LOW)
 const int in_vermelho = 25;
 const int in_verde    = 33;
 const int in_azul     = 32;
 const int in_amarelo  = 35;
 
-// LEDs
 const int out_vermelho = 5;
 const int out_verde    = 17;
 const int out_azul     = 16;
@@ -16,11 +14,9 @@ const int out_amarelo  = 4;
 
 const int buzzer = 19;
 
-// LCD
-// SDA = GPIO 21 | SCL = GPIO 22 (padrão ESP32)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// ESTADOS
+// ===================== ESTADOS =====================
 typedef enum {
   WELCOME,
   INSTRUCTIONS,
@@ -32,27 +28,37 @@ typedef enum {
 
 estados estadoAtual;
 
-// TAG 
-char tag[4] = {'A', 'A', 'A', '\0'};  // 3 caracteres, começa em AAA
-int tagPos = 0;                         // posição sendo editada (0,1,2)
-// Botão 4 (amarelo) confirma a tag
+// ===================== TAG =====================
+char tag[4] = {'A', 'A', 'A', '\0'};
+int tagPos = 0;
 
-// JOGO 
+
+#define MAX_NIVEL 100
+
 int gameState = 0;
-#define MAX_RODADAS 100
-int cores[MAX_RODADAS];int nivel  = 0;
+int cores[MAX_NIVEL] = {};
+int nivel  = 0;
 int atual  = 0;
 int pontos = 0;
 
-// DEBOUNCE 
+
+const int DELAY_BASE     = 600;   
+const int DELAY_ENTRE    = 200;  
+const int DELAY_MIN      = 100;   
+
+
+int calcularDelay(int nivelAtual) {
+  float fator = pow(0.90, nivelAtual);          
+  int d = (int)(DELAY_BASE * fator);
+  return max(d, DELAY_MIN);
+}
+
+// ===================== DEBOUNCE =====================
 unsigned long lastDebounce = 0;
 const unsigned long DEBOUNCE_MS = 50;
 
-
-//  UTILITÁRIOS LCD
-void lcdClear() {
-  lcd.clear();
-}
+// ===================== UTILITÁRIOS LCD =====================
+void lcdClear() { lcd.clear(); }
 
 void lcdPrint(int col, int row, const char* msg) {
   lcd.setCursor(col, row);
@@ -64,11 +70,9 @@ void lcdPrintStr(int col, int row, String msg) {
   lcd.print(msg);
 }
 
-
-//  LEITURA DE BOTÕES (retorna 1-4 ou 0)
+// ===================== LEITURA DE BOTÕES =====================
 int leInput() {
   static int lastV = HIGH, lastG = HIGH, lastB = HIGH, lastA = HIGH;
-
   int v = digitalRead(in_vermelho);
   int g = digitalRead(in_verde);
   int b = digitalRead(in_azul);
@@ -80,7 +84,6 @@ int leInput() {
     if (lastB == HIGH && b == LOW) { lastDebounce = millis(); lastB = b; return 3; }
     if (lastA == HIGH && a == LOW) { lastDebounce = millis(); lastA = a; return 4; }
   }
-
   lastV = v; lastG = g; lastB = b; lastA = a;
   return 0;
 }
@@ -90,8 +93,7 @@ void aguardaSoltar() {
   while (leInput() != 0) delay(50);
 }
 
-
-//  SONS
+// ===================== SONS =====================
 void tocarSomCor(int cor) {
   int freqs[] = {0, 170, 164, 485, 500};
   tone(buzzer, freqs[cor], 400);
@@ -103,42 +105,36 @@ void tocarSomBotao(int cor) {
 }
 
 void tocarSomErro() {
-  tone(buzzer, 100, 300);
-  delay(150);
-  tone(buzzer, 80, 300);
-  delay(300);
+  tone(buzzer, 100, 300); delay(150);
+  tone(buzzer, 80, 300);  delay(300);
   noTone(buzzer);
 }
 
 void tocarSomAcerto() {
-  tone(buzzer, 600, 100);
-  delay(100);
-  tone(buzzer, 800, 100);
-  delay(100);
+  tone(buzzer, 600, 100); delay(100);
+  tone(buzzer, 800, 100); delay(100);
   noTone(buzzer);
 }
 
 void tocarSomNavegacao() {
-  tone(buzzer, 1000, 60);
-  delay(60);
+  tone(buzzer, 1000, 60); delay(60);
   noTone(buzzer);
 }
 
 void tocarSomConfirma() {
-  tone(buzzer, 800, 80);  delay(80);
-  tone(buzzer, 1000, 80); delay(80);
-  tone(buzzer, 1200, 120);delay(120);
+  tone(buzzer, 800, 80);   delay(80);
+  tone(buzzer, 1000, 80);  delay(80);
+  tone(buzzer, 1200, 120); delay(120);
   noTone(buzzer);
 }
 
+// ===================== TELAS =====================
 
-//  TELA: BOAS VINDAS
 void runWelcome() {
   lcdClear();
   lcdPrint(2, 0, "BEM-VINDO AO");
   lcdPrint(4, 1, "GENIUS! :)");
 
-  // Acende todos os LEDs com animação
   int leds[]  = {out_vermelho, out_verde, out_azul, out_amarelo};
   int freqs[] = {170, 164, 485, 500};
   for (int i = 0; i < 4; i++) {
@@ -149,67 +145,33 @@ void runWelcome() {
   }
   noTone(buzzer);
   delay(1200);
-
   estadoAtual = INSTRUCTIONS;
 }
 
-//  TELA: INSTRUÇÕES
 void runInstructions() {
-  // Página 1
-  lcdClear();
-  lcdPrint(0, 0, "Repita a sequen-");
-  lcdPrint(0, 1, "cia de cores!");
-  delay(2500);
-
-  // Página 2
-  lcdClear();
-  lcdPrint(0, 0, "Use os 4 botoes");
-  lcdPrint(0, 1, "coloridos.");
-  delay(2500);
-
-  // Página 3
-  lcdClear();
-  lcdPrint(0, 0, "Erre->Fim de jogo");
-  lcdPrint(0, 1, "Acerte -> +1 pt!");
-  delay(2500);
-
-  // Página 4 — explicação da tag
-  lcdClear();
-  lcdPrint(0, 0, "Escolha sua TAG");
-  lcdPrint(0, 1, "de 3 letras!");
-  delay(2500);
-
-  // Página 5
-  lcdClear();
-  lcdPrint(0, 0, "V/G/A: mudam as");
-  lcdPrint(0, 1, "letras. AM=OK!");
-  delay(2500);
-
+  lcdClear(); lcdPrint(0, 0, "Repita a sequen-"); lcdPrint(0, 1, "cia de cores!"); delay(2500);
+  lcdClear(); lcdPrint(0, 0, "Use os 4 botoes"); lcdPrint(0, 1, "coloridos."); delay(2500);
+  lcdClear(); lcdPrint(0, 0, "Erre->Fim de jogo"); lcdPrint(0, 1, "Acerte -> +1 pt!"); delay(2500);
+  lcdClear(); lcdPrint(0, 0, "Escolha sua TAG"); lcdPrint(0, 1, "de 3 letras!"); delay(2500);
+  lcdClear(); lcdPrint(0, 0, "V/G/A: mudam as"); lcdPrint(0, 1, "letras. AM=OK!"); delay(2500);
   estadoAtual = TAG_SELECT;
 }
 
-//  TELA: SELEÇÃO DE TAG
 void desenhaTag() {
   lcdClear();
   lcdPrint(0, 0, "Sua TAG:");
-
-  // Linha 1: mostra as 3 letras com cursor embaixo da ativa
   lcd.setCursor(0, 1);
   for (int i = 0; i < 3; i++) {
-    lcd.print(' ');
-    lcd.print(tag[i]);
-    lcd.print(' ');
+    lcd.print(' '); lcd.print(tag[i]); lcd.print(' ');
     if (i < 2) lcd.print('|');
   }
-
-  // Cursor piscando na posição ativa (col = 1 + pos*4)
   lcd.setCursor(1 + tagPos * 4, 1);
   lcd.blink();
 }
 
 void runTagSelect() {
   tag[0] = 'A'; tag[1] = 'A'; tag[2] = 'A';
-  tagPos  = 0;
+  tagPos = 0;
   desenhaTag();
 
   while (true) {
@@ -217,47 +179,27 @@ void runTagSelect() {
     if (btn == 0) { delay(10); continue; }
 
     if (btn == 1) {
-      // Vermelho: avança letra na posição 0
       tag[0] = (tag[0] - 'A' + 1) % 26 + 'A';
-      tocarSomNavegacao();
-      tagPos = 0;
-      desenhaTag();
-      aguardaSoltar();
-    }
-    else if (btn == 2) {
-      // Verde: avança letra na posição 1
+      tocarSomNavegacao(); tagPos = 0; desenhaTag(); aguardaSoltar();
+    } else if (btn == 2) {
       tag[1] = (tag[1] - 'A' + 1) % 26 + 'A';
-      tocarSomNavegacao();
-      tagPos = 1;
-      desenhaTag();
-      aguardaSoltar();
-    }
-    else if (btn == 3) {
-      // Azul: avança letra na posição 2
+      tocarSomNavegacao(); tagPos = 1; desenhaTag(); aguardaSoltar();
+    } else if (btn == 3) {
       tag[2] = (tag[2] - 'A' + 1) % 26 + 'A';
-      tocarSomNavegacao();
-      tagPos = 2;
-      desenhaTag();
-      aguardaSoltar();
-    }
-    else if (btn == 4) {
-      // Amarelo: confirma TAG
+      tocarSomNavegacao(); tagPos = 2; desenhaTag(); aguardaSoltar();
+    } else if (btn == 4) {
       lcd.noBlink();
       tocarSomConfirma();
-
       lcdClear();
       lcdPrint(0, 0, "TAG confirmada:");
-      lcd.setCursor(6, 1);
-      lcd.print(tag);
+      lcd.setCursor(6, 1); lcd.print(tag);
       delay(1800);
-
       estadoAtual = STARTUP;
       return;
     }
   }
 }
 
-//  STARTUP — animação de início
 void runStartup() {
   lcdClear();
   lcdPrint(3, 0, "INICIANDO...");
@@ -274,12 +216,10 @@ void runStartup() {
   noTone(buzzer);
   delay(800);
 
-  // Mostra "START!" com todos os LEDs
   lcdClear();
   lcdPrint(3, 0, "** INICIAR **");
   lcdPrint(0, 1, "Boa sorte, ");
-  lcd.print(tag);
-  lcd.print("!");
+  lcd.print(tag); lcd.print("!");
 
   for (int i = 0; i < 4; i++) digitalWrite(leds[i], HIGH);
   tone(buzzer, 880, 400);
@@ -288,69 +228,82 @@ void runStartup() {
   noTone(buzzer);
   delay(800);
 
-  pontos    = 0;
-  nivel     = 0;
-  atual     = 0;
-  gameState = 0;
+  pontos = 0; nivel = 0; atual = 0; gameState = 0;
   memset(cores, 0, sizeof(cores));
-
   estadoAtual = GAME;
 }
 
-//  MOSTRA COR (LED + som)
-void mostraCor(int cor) {
+// ===================== EXIBE COR COM DELAY DINÂMICO =====================
+void mostraCorAdaptativa(int cor, int delayOn, int delayOff) {
   int leds[]  = {0, out_vermelho, out_verde, out_azul, out_amarelo};
   int freqs[] = {0, 170, 164, 485, 500};
 
   digitalWrite(leds[cor], HIGH);
-  tone(buzzer, freqs[cor], 400);
-  delay(400);
+  tone(buzzer, freqs[cor], delayOn);
+  delay(delayOn);
   digitalWrite(leds[cor], LOW);
   noTone(buzzer);
-  delay(150);
+  delay(delayOff);
 }
 
-//  JOGO
+// ===================== JOGO =====================
 void atualizaLcdJogo() {
   lcdClear();
-  lcdPrintStr(0, 0, String(tag) + "  Nv:" + String(nivel + 1));
+  String linhaZero = String(tag) + " Nv:" + String(nivel + 1);
+
+  if (nivel >= 20)       linhaZero += " >>>";
+  else if (nivel >= 10)  linhaZero += " >>";
+  else if (nivel >= 5)   linhaZero += " >";
+
+  lcdPrintStr(0, 0, linhaZero);
   lcdPrintStr(0, 1, "Pontos: " + String(pontos));
 }
 
 void runGame() {
-  if (gameState == 0) {
-    // Gera nova cor e exibe sequência
-    cores[nivel] = random(1, 5);
 
+  if (nivel >= MAX_NIVEL) {
+    lcdClear();
+    lcdPrint(0, 0, "PARABENS! 100nv!");
+    lcdPrintStr(0, 1, "Pts: " + String(pontos));
+    tocarSomConfirma();
+    delay(3000);
+    estadoAtual = GAME_OVER;
+    return;
+  }
+
+  if (gameState == 0) {
+    cores[nivel] = random(1, 5);
     atualizaLcdJogo();
     delay(600);
 
-    // Exibe sequência
+    int dOn  = calcularDelay(nivel);               
+    int dOff = max(dOn / 3, DELAY_MIN / 2);        
+
     lcdClear();
     lcdPrint(0, 0, "Olhe e memorize");
-    lcdPrint(2, 1, "a sequencia!");
+    if (dOn <= 150)       lcdPrint(0, 1, "Veloc.: MAX!");
+    else if (dOn <= 250)  lcdPrint(0, 1, "Veloc.: alta");
+    else if (dOn <= 400)  lcdPrint(0, 1, "Veloc.: media");
+    else                  lcdPrint(0, 1, "Veloc.: baixa");
     delay(500);
 
     for (int i = 0; i <= nivel; i++) {
-      mostraCor(cores[i]);
+      mostraCorAdaptativa(cores[i], dOn, dOff);
     }
 
-    // Aguarda input
     lcdClear();
     lcdPrint(0, 0, "Agora e sua vez!");
     lcdPrint(0, 1, "Repita a ordem!");
 
     gameState = 1;
     aguardaSoltar();
-  }
-  else {
-    // Recebe input do jogador
+
+  } else {
     if (atual <= nivel) {
       int cor = leInput();
       if (cor != 0) {
         tocarSomBotao(cor);
 
-        // Acende LED enquanto botão pressionado
         int leds[] = {0, out_vermelho, out_verde, out_azul, out_amarelo};
         digitalWrite(leds[cor], HIGH);
         delay(150);
@@ -360,20 +313,19 @@ void runGame() {
           tocarSomAcerto();
           atual++;
           aguardaSoltar();
-        }
-        else {
+        } else {
+          tocarSomErro();          
           estadoAtual = GAME_OVER;
         }
       }
-    }
-    else {
-      // Completou o nível
+    } else {
       pontos++;
       tocarSomConfirma();
 
       lcdClear();
       lcdPrintStr(0, 0, "Nivel " + String(nivel + 1) + " OK! +1pt");
-      lcdPrintStr(0, 1, "Total: " + String(pontos) + " ptos");
+      int proximoDelay = calcularDelay(nivel + 1);
+      lcdPrintStr(0, 1, "Prox.spd:" + String(proximoDelay) + "ms");
       delay(1200);
 
       gameState = 0;
@@ -384,9 +336,8 @@ void runGame() {
   }
 }
 
-//  GAME OVER
+// ===================== GAME OVER =====================
 void runGameOver() {
-  // Animação de derrota
   int leds[]  = {out_vermelho, out_verde, out_azul, out_amarelo};
   int freqs[] = {170, 164, 146, 130};
 
@@ -402,32 +353,25 @@ void runGameOver() {
     noTone(buzzer);
     delay(80);
   }
-  // Nota longa final
   digitalWrite(out_amarelo, HIGH);
   tone(buzzer, 110, 1000);
   delay(1000);
   digitalWrite(out_amarelo, LOW);
   noTone(buzzer);
-
   delay(1500);
 
-  // Exibe pontuação final por mais tempo
   lcdClear();
   lcdPrintStr(0, 0, "Pontos: " + String(pontos));
   lcdPrintStr(0, 1, "Nivel: " + String(nivel + 1));
   delay(3000);
 
-  // Reinicia tudo
-  nivel     = 0;
-  atual     = 0;
-  gameState = 0;
-  pontos    = 0;
+  // Reset completo
+  nivel = 0; atual = 0; gameState = 0; pontos = 0;
   memset(cores, 0, sizeof(cores));
-
-  estadoAtual = WELCOME;  // Volta ao início
+  estadoAtual = WELCOME;
 }
 
-//  SETUP & LOOP
+// ===================== SETUP & LOOP =====================
 void setup() {
   Serial.begin(115200);
 
@@ -442,7 +386,6 @@ void setup() {
   pinMode(out_amarelo,  OUTPUT);
   pinMode(buzzer,       OUTPUT);
 
-  // LCD
   lcd.init();
   lcd.backlight();
 
