@@ -39,8 +39,8 @@ int tagPos = 0;                         // posição sendo editada (0,1,2)
 
 // JOGO 
 int gameState = 0;
-int cores[20]  = {};
-int nivel  = 0;
+#define MAX_RODADAS 100
+int cores[MAX_RODADAS];int nivel  = 0;
 int atual  = 0;
 int pontos = 0;
 
