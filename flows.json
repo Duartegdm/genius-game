@@ -1,0 +1,332 @@
+[
+    {
+        "id": "tab_genius",
+        "type": "tab",
+        "label": "Genius IoT - Ranking",
+        "disabled": false,
+        "info": "Fluxo para receber pontuações do jogo Genius via MQTT e exibir o Top 10 no dashboard."
+    },
+    {
+        "id": "broker_mqtt",
+        "type": "mqtt-broker",
+        "name": "Broker HiveMQ (público)",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "nodered-genius-leaderboard",
+        "autoConnect": true,
+        "usetls": false,
+        "compatmode": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "aba_dashboard",
+        "type": "ui_tab",
+        "name": "Ranking Global",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "grupo_ranking",
+        "type": "ui_group",
+        "name": "🏆 Genius IoT - Global Leaderboard",
+        "tab": "aba_dashboard",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "044987610b8d5041",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "mqtt_in",
+        "type": "mqtt in",
+        "z": "tab_genius",
+        "name": "Recebe pontuação",
+        "topic": "disruptive/genius/rank",
+        "qos": "1",
+        "datatype": "auto",
+        "broker": "broker_mqtt",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 130,
+        "y": 140,
+        "wires": [
+            [
+                "json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "json_parse",
+        "type": "json",
+        "z": "tab_genius",
+        "name": "Parse JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 330,
+        "y": 140,
+        "wires": [
+            [
+                "fn_atualiza_ranking",
+                "debug_entrada"
+            ]
+        ]
+    },
+    {
+        "id": "debug_entrada",
+        "type": "debug",
+        "z": "tab_genius",
+        "name": "Debug: msg recebida",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 440,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "fn_atualiza_ranking",
+        "type": "function",
+        "z": "tab_genius",
+        "name": "Atualiza Ranking Top 10",
+        "func": "// ============================================================\n// FUNÇÃO PRINCIPAL: Gerencia o ranking persistente dos jogadores\n// Recebe: msg.payload = { tag: \"ABC\", score: 15 }\n// ============================================================\n\n// 1. Valida os dados recebidos do ESP32\nvar tag   = msg.payload.tag;\nvar score = parseInt(msg.payload.score);\n\nif (!tag || isNaN(score)) {\n    node.warn(\"Payload inválido recebido: \" + JSON.stringify(msg.payload));\n    return null;\n}\n\n// 2. Recupera o ranking atual do flow context\nvar ranking = flow.get('ranking') || [];\n\n// 3. Verifica se o jogador já está no ranking pela TAG\nvar indice = ranking.findIndex(function(j) { return j.tag === tag; });\n\nif (indice !== -1) {\n    // Jogador já existe: atualiza só se o novo score for MAIOR\n    if (score > ranking[indice].score) {\n        ranking[indice].score = score;\n        ranking[indice].timestamp = new Date().toLocaleString('pt-BR');\n    }\n} else {\n    // Novo jogador: adiciona ao ranking\n    ranking.push({\n        tag: tag,\n        score: score,\n        timestamp: new Date().toLocaleString('pt-BR')\n    });\n}\n\n// 4. Ordena do maior para o menor score\nranking.sort(function(a, b) { return b.score - a.score; });\n\n// 5. Mantém apenas o Top 10\nvar top10 = ranking.slice(0, 10);\n\n// 6. Salva o ranking atualizado no flow context (persistência)\nflow.set('ranking', top10);\n\n// 7. Monta o texto do ranking para exibição\nvar texto = \"\";\ntop10.forEach(function(j, i) {\n    var medalha = i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ';\n    texto += medalha + ' #'+(i+1)+' | '+j.tag.toUpperCase()+' | '+j.score+' pts | '+j.timestamp+'\\n';\n});\n\n// 8. Envia para as 3 saídas\nreturn [\n    { payload: texto },\n    { payload: \"🎮 \" + tag.toUpperCase() + \" → \" + score + \" pontos\" },\n    { payload: \"Jogadores únicos no ranking: \" + top10.length }\n];\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 140,
+        "wires": [
+            [
+                "ui_text_ranking",
+                "debug_ranking"
+            ],
+            [
+                "ui_text_ultimo"
+            ],
+            [
+                "ui_text_contador"
+            ]
+        ]
+    },
+    {
+        "id": "debug_ranking",
+        "type": "debug",
+        "z": "tab_genius",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 800,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "ui_text_ranking",
+        "type": "ui_text",
+        "z": "tab_genius",
+        "group": "grupo_ranking",
+        "order": 1,
+        "width": "12",
+        "height": "6",
+        "name": "Top 10 Ranking",
+        "label": "",
+        "format": "<pre>{{msg.payload}}</pre>",
+        "layout": "row-spread",
+        "x": 820,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ui_text_ultimo",
+        "type": "ui_text",
+        "z": "tab_genius",
+        "group": "grupo_ranking",
+        "order": 2,
+        "width": "12",
+        "height": "1",
+        "name": "Último Placar",
+        "label": "🕹️  Última partida:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 810,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ui_text_contador",
+        "type": "ui_text",
+        "z": "tab_genius",
+        "group": "grupo_ranking",
+        "order": 3,
+        "width": "12",
+        "height": "1",
+        "name": "Contador de Jogadores",
+        "label": "👥  Status:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 850,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "inject_limpar",
+        "type": "inject",
+        "z": "tab_genius",
+        "name": "Limpar Ranking (manual)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "[]",
+        "payloadType": "json",
+        "x": 230,
+        "y": 220,
+        "wires": [
+            [
+                "fn_limpar_ranking"
+            ]
+        ]
+    },
+    {
+        "id": "fn_limpar_ranking",
+        "type": "function",
+        "z": "tab_genius",
+        "name": "Limpa o flow context",
+        "func": "// Zera o ranking no flow context\nflow.set('ranking', []);\nnode.warn(\"Ranking zerado pelo operador!\");\n\nreturn [\n    null,\n    { payload: \"-- Ranking zerado --\" },\n    { payload: \"Nenhum jogador ainda\" }\n];\n",
+        "outputs": 3,
+        "x": 540,
+        "y": 220,
+        "wires": [
+            [],
+            [
+                "ui_text_ultimo"
+            ],
+            [
+                "ui_text_contador"
+            ]
+        ]
+    }
+]
